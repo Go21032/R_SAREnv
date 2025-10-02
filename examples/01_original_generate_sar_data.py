@@ -1,15 +1,14 @@
-# examples/basic_usage_example.py
+# examples/basic_usage_example.py (修正版)
 import os
-
 import geopandas as gpd
 import numpy as np
 from pathlib import Path
 import shapely
+# Matplotlibをインポートする
+import matplotlib.pyplot as plt
 from sarenv import (
-    CLIMATE_DRY,
     CLIMATE_TEMPERATE,
     ENVIRONMENT_TYPE_FLAT,
-    ENVIRONMENT_TYPE_MOUNTAINOUS,
     DataGenerator,
     get_logger,
 )
@@ -36,16 +35,16 @@ def run_polygon_export_example():
         [10.280, 55.150],  # Northwest corner
         [10.280, 55.140],  # Close the polygon (same as first point)
     ]
-    
+
     # Create a shapely Polygon object
     custom_polygon = shapely.geometry.Polygon(polygon_coords)
-    
+
     # Alternative: You can also use a GeoJSON-like dictionary format
     polygon_dict = {
         "type": "Polygon",
         "coordinates": [polygon_coords]
     }
-    
+
     output_dir = "sarenv_dataset_polygon"
 
     # 3. Run the polygon-based export function using the shapely Polygon
@@ -105,10 +104,10 @@ def run_polygon_generation_only_example():
     without exporting files.
     """
     log.info("--- Starting Environment Generation from Polygon Example ---")
-    
+
     # Initialize the generator
     data_gen = DataGenerator()
-    
+
     # Define a triangle polygon (3 points + closing point)
     triangle_coords = [
         [10.285, 55.142],  # Point 1
@@ -116,20 +115,20 @@ def run_polygon_generation_only_example():
         [10.290, 55.148],  # Point 3
         [10.285, 55.142],  # Close the polygon
     ]
-    
+
     triangle_polygon = shapely.geometry.Polygon(triangle_coords)
-    
+
     # Generate the environment
     log.info("--- Generating environment from triangle polygon ---")
     env = data_gen.generate_environment_from_polygon(
         polygon=triangle_polygon,
         meter_per_bin=20,  # Higher resolution
     )
-    
+
     if env:
         log.info(f"Successfully generated environment with area: {env.area:.2f} m² ({env.area/1e6:.4f} km²)")
         log.info(f"Number of feature types found: {len([k for k, v in env.features.items() if v is not None and not v.empty])}")
-        
+
         # Generate the combined heatmap
         combined_heatmap = env.get_combined_heatmap()
         if combined_heatmap is not None:
@@ -141,22 +140,20 @@ def run_polygon_generation_only_example():
         log.error("Failed to generate environment from polygon")
 
 
-
 def run_export_example():
     """
-    An example function demonstrating how to use the DataGenerator
-    to export features and heatmaps for all quantiles.
+    データセットをエクスポートし、ヒートマップを画像として表示する関数
     """
     log.info("--- Starting DataGenerator Export Example ---")
 
-    # 1. Initialize the generator.
+    # 1. ジェネレータを初期化
     data_gen = DataGenerator()
     
-    # 2. データセットの中心点と出力ディレクトリを定義する
-    initial_planning_point = 10.289470, 55.145921
-    output_dir = "sarenv_dataset"
+    # 2. データセットの中心点と出力ディレクトリを定義
+    initial_planning_point = 139.74852584739452, 35.60677389602193
+    output_dir = "university_sar_dataset"
 
-    # 3. Run the main export function.
+    # 3. データセットをエクスポート
     data_gen.export_dataset(
         center_point=initial_planning_point,
         output_directory=output_dir,
@@ -165,19 +162,32 @@ def run_export_example():
         meter_per_bin=30,
     )
 
-    log.info("--- Verifying exported files ---")
+    log.info("--- Verifying and Visualizing Exported Files ---")
     try:
-        # Check the files for the 'median' quantile
+        # heatmap.npyファイルのパス
         master_heatmap_path = os.path.join(output_dir, "heatmap.npy")
-        master_features_path = os.path.join(output_dir, "features.geojson")
 
         if os.path.exists(master_heatmap_path):
+            # ヒートマップデータを読み込む
             heatmap_matrix = np.load(master_heatmap_path)
             log.info(f"Loaded heatmap 'heatmap.npy'. Shape: {heatmap_matrix.shape}")
-            # You could now use this matrix for analysis or as input to a model.
+
+            # --- ここからが画像表示の追加部分 ---
+            log.info("Visualizing heatmap...")
+            plt.figure(figsize=(8, 6)) # ウィンドウのサイズを調整
+            plt.imshow(heatmap_matrix, cmap='hot') # 'hot'カラーマップで表示
+            plt.colorbar(label='Probability') # 色の凡例（カラーバー）を表示
+            plt.title("SAR Heatmap") # グラフのタイトル
+            plt.xlabel("X-axis") # X軸ラベル
+            plt.ylabel("Y-axis") # Y軸ラベル
+            plt.show() # 画像を表示するウィンドウを開く
+            # --- ここまでが追加部分 ---
+
         else:
             log.error(f"Verification failed: {master_heatmap_path} not found.")
 
+        # features.geojsonの読み込み部分は変更なし
+        master_features_path = os.path.join(output_dir, "features.geojson")
         if os.path.exists(master_features_path):
             features_gdf = gpd.read_file(master_features_path)
             log.info(
